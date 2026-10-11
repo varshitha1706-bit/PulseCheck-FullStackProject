@@ -1,0 +1,10 @@
+node_modules/
+client/node_modules/
+.env
+.env.*
+!.env.example
+pulsecheck.db
+pulsecheck.db-shm
+pulsecheck.db-wal
+.DS_Store
+dist/
