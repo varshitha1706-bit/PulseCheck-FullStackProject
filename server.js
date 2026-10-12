@@ -113,9 +113,18 @@ app.post("/api/endpoints", async (req, res) => {
 
   // Parse URL.
   let parsedUrl;
-
   try {
     parsedUrl = new URL(url.trim());
+parsedUrl.hostname = parsedUrl.hostname.toLowerCase();
+
+// Normalize root URLs
+if (
+  parsedUrl.pathname === "/" &&
+  !parsedUrl.search &&
+  !parsedUrl.hash
+) {
+  parsedUrl.pathname = "";
+}
   } catch {
     return res.status(400).json({
       error: "Please enter a valid URL, such as https://example.com."
@@ -156,6 +165,13 @@ app.post("/api/endpoints", async (req, res) => {
       id: result.lastInsertRowid
     });
   } catch (error) {
+    // NEW: Handle duplicate URLs.
+    if (error.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      return res.status(409).json({
+        error: "This website URL is already being monitored."
+      });
+    }
+
     console.error("Error saving endpoint:", error);
 
     return res.status(500).json({

@@ -1,9 +1,14 @@
+
 const Database = require("better-sqlite3");
 
 const db = new Database("pulsecheck.db");
 
 console.log("Database connected");
 
+// Enforce relationships between database tables.
+db.pragma("foreign_keys = ON");
+
+// Create the endpoints table.
 db.prepare(`
   CREATE TABLE IF NOT EXISTS endpoints (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,6 +19,14 @@ db.prepare(`
 `).run();
 
 console.log("Endpoints table ready");
+
+// Prevent the same URL from being registered twice.
+db.prepare(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_endpoints_url
+  ON endpoints(url)
+`).run();
+
+// Create the checks table.
 db.prepare(`
   CREATE TABLE IF NOT EXISTS checks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,4 +40,5 @@ db.prepare(`
 `).run();
 
 console.log("Checks table ready");
+
 module.exports = db;
