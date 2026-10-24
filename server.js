@@ -190,32 +190,24 @@ app.get("/api/endpoints", (req, res) => {
 });
 
 // Check a website
-app.post("/api/endpoints/:id/check", async (req, res) => {
-  // Find the endpoint.
-  const endpoint = db.prepare(`
-    SELECT * FROM endpoints WHERE id = ?
-  `).get(req.params.id);
-
-  if (!endpoint) {
-    return res.status(404).json({
-      error: "Endpoint not found"
-    });
-  }
-
-  // Validate the URL again before requesting it.
+// Check a website and save the result.
+async function checkEndpoint(endpoint) {
   if (!(await isPublicHttpUrl(endpoint.url))) {
-    return res.status(400).json({
+    return {
+      name: endpoint.name,
+      url: endpoint.url,
+      statusCode: null,
+      latencyMs: 0,
+      success: false,
       error: "This URL is not allowed for monitoring."
-    });
+    };
   }
 
   const startTime = Date.now();
-
   let statusCode = null;
   let success = false;
   let errorMessage = null;
 
-  // Contact the website without following redirects.
   try {
     const response = await fetch(endpoint.url, {
       method: "GET",
@@ -223,14 +215,12 @@ app.post("/api/endpoints/:id/check", async (req, res) => {
       signal: AbortSignal.timeout(5000)
     });
 
+    statusCode = response.status;
+
     if (response.status >= 300 && response.status < 400) {
       errorMessage =
         "Website redirected. Redirects are not followed for security.";
-
-      statusCode = response.status;
-      success = false;
     } else {
-      statusCode = response.status;
       success = response.ok;
     }
   } catch (error) {
@@ -239,10 +229,8 @@ app.post("/api/endpoints/:id/check", async (req, res) => {
       : "Could not connect to this website.";
   }
 
-  // Calculate latency.
   const latency = Date.now() - startTime;
 
-  // Save the check result.
   db.prepare(`
     INSERT INTO checks
       (endpoint_id, status_code, latency_ms, success)
@@ -254,17 +242,36 @@ app.post("/api/endpoints/:id/check", async (req, res) => {
     success ? 1 : 0
   );
 
-  // Return the result.
-  res.json({
+  return {
     name: endpoint.name,
     url: endpoint.url,
     statusCode: statusCode,
     latencyMs: latency,
     success: success,
     error: errorMessage
-  });
-});
+  };
+}
 
+// Check a website manually.
+app.post("/api/endpoints/:id/check", async (req, res) => {
+  const endpoint = db.prepare(`
+    SELECT * FROM endpoints WHERE id = ?
+  `).get(req.params.id);
+
+  if (!endpoint) {
+    return res.status(404).json({
+      error: "Endpoint not found"
+    });
+  }
+
+  const result = await checkEndpoint(endpoint);
+
+  if (result.error === "This URL is not allowed for monitoring.") {
+    return res.status(400).json(result);
+  }
+
+  res.json(result);
+});
 // View check history
 app.get("/api/endpoints/:id/checks", (req, res) => {
   const endpointId = req.params.id;
@@ -307,6 +314,56 @@ app.get("/api/endpoints/:id/analytics", (req, res) => {
       : Math.round(analytics.average_latency_ms)
   });
 });
+
+// Run automatic website checks every 5 minutes.
+let scheduledChecksRunning = false;
+
+async function runScheduledChecks() {
+  // Prevent two scheduled batches from overlapping.
+  if (scheduledChecksRunning) {
+    console.log("Previous scheduled checks are still running.");
+    return;
+  }
+
+  scheduledChecksRunning = true;
+
+  try {
+    const endpoints = db.prepare(
+      "SELECT * FROM endpoints"
+    ).all();
+
+    console.log(
+      `Starting scheduled checks for ${endpoints.length} websites.`
+    );
+
+    // Check each saved website one at a time.
+    for (const endpoint of endpoints) {
+      try {
+        const result = await checkEndpoint(endpoint);
+
+        console.log(
+          `Scheduled check: ${endpoint.name} - ${
+            result.success ? "Healthy" : "Unhealthy"
+          }`
+        );
+      } catch (error) {
+        console.error(
+          `Scheduled check failed for ${endpoint.name}:`,
+          error.message
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Scheduled monitoring error:", error.message);
+  } finally {
+    scheduledChecksRunning = false;
+  }
+}
+
+// Wait 5 minutes between scheduled runs.
+setInterval(runScheduledChecks, 5 * 60 * 1000);
+
+console.log("Scheduled monitoring enabled: every 5 minutes.");
 
 // Start server
 const server = app.listen(5000, () => {
