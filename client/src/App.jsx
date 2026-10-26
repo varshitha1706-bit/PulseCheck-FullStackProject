@@ -11,6 +11,38 @@ import {
   Tooltip,
 } from "recharts";
 
+
+function getDisplayStatus(check) {
+  if (!check || check.statusCode == null) {
+    return {
+      label: "Unreachable",
+      className: "failure",
+    };
+  }
+
+  if (check.statusCode >= 300 && check.statusCode < 400) {
+    return {
+      label: "Redirect",
+      className: "redirect",
+    };
+  }
+
+  if (check.statusCode >= 200 && check.statusCode < 300) {
+    return {
+      label: "Healthy",
+      className: "success",
+    };
+  }
+
+  return {
+    label: "HTTP Error",
+    className: "failure",
+  };
+}
+
+
+
+
 function App() {
   const [endpoints, setEndpoints] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -290,17 +322,17 @@ function App() {
 
                         {checkResults[endpoint.id] && (
                           <div className="check-result">
-                            <span
-                              className={
-                                checkResults[endpoint.id].success
-                                  ? "result-status success"
-                                  : "result-status failure"
-                              }
-                            >
-                              {checkResults[endpoint.id].success
-                                ? "● Healthy"
-                                : "● Unhealthy"}
-                            </span>
+                            
+{(() => {
+  const status = getDisplayStatus(checkResults[endpoint.id]);
+
+  return (
+    <span className={`result-status ${status.className}`}>
+      ● {status.label}
+    </span>
+  );
+})()}
+
 
                             <span>
                               HTTP{" "}
@@ -388,9 +420,12 @@ function App() {
                       {histories[endpoint.id].map((check) => (
                         <div className="website-card" key={check.id}>
                           <div className="website-info">
-                            <h3>
-                              {check.success ? "Healthy" : "Unhealthy"}
-                            </h3>
+                               <h3>
+  {getDisplayStatus({
+    statusCode: check.status_code,
+  }).label}
+</h3>
+
                             <p>
                               {check.checked_at} · HTTP{" "}
                               {check.status_code ?? "N/A"} ·{" "}

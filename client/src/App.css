@@ -603,4 +603,6 @@ footer {
   box-sizing: border-box;
   overflow: hidden;
 }
-
+.result-status.redirect {
+  color: #f0bd65;
+}

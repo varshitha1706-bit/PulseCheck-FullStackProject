@@ -199,14 +199,16 @@ async function checkEndpoint(endpoint) {
       statusCode: null,
       latencyMs: 0,
       success: false,
+      reachable: false,
       error: "This URL is not allowed for monitoring."
     };
   }
 
   const startTime = Date.now();
   let statusCode = null;
-  let success = false;
-  let errorMessage = null;
+let success = false;
+let reachable = false;
+let errorMessage = null;
 
   try {
     const response = await fetch(endpoint.url, {
@@ -215,14 +217,15 @@ async function checkEndpoint(endpoint) {
       signal: AbortSignal.timeout(5000)
     });
 
-    statusCode = response.status;
+   statusCode = response.status;
+reachable = true;
 
-    if (response.status >= 300 && response.status < 400) {
-      errorMessage =
-        "Website redirected. Redirects are not followed for security.";
-    } else {
-      success = response.ok;
-    }
+if (response.status >= 300 && response.status < 400) {
+  errorMessage =
+    "Website redirected. Redirects are not followed for security.";
+}
+
+success = response.ok;
   } catch (error) {
     errorMessage = error.name === "TimeoutError"
       ? "Request timed out after 5 seconds."
@@ -248,6 +251,7 @@ async function checkEndpoint(endpoint) {
     statusCode: statusCode,
     latencyMs: latency,
     success: success,
+    reachable: reachable,
     error: errorMessage
   };
 }
