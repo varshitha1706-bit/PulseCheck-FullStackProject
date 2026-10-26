@@ -1,7 +1,11 @@
 
 const Database = require("better-sqlite3");
+const path = require("node:path");
 
-const db = new Database("pulsecheck.db");
+const databasePath =
+  process.env.DATABASE_PATH || path.join(__dirname, "pulsecheck.db");
+
+const db = new Database(databasePath);
 
 console.log("Database connected");
 

@@ -366,8 +366,24 @@ setInterval(runScheduledChecks, 5 * 60 * 1000);
 console.log("Scheduled monitoring enabled: every 5 minutes.");
 
 // Start server
-const server = app.listen(5000, () => {
-  console.log("PulseCheck server is running on port 5000");
+// Serve the built React frontend in production.
+const path = require("node:path");
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "client", "dist")));
+
+  app.get("/{*path}", (req, res) => {
+    res.sendFile(
+      path.join(__dirname, "client", "dist", "index.html")
+    );
+  });
+}
+
+// Start server using the port provided by the hosting platform.
+const PORT = process.env.PORT || 5000;
+
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`PulseCheck server is running on port ${PORT}`);
 });
 
 server.on("close", () => {
