@@ -290,34 +290,57 @@ app.get("/api/endpoints/:id/checks", (req, res) => {
 });
 
 // View analytics
+
+ // View analytics
 app.get("/api/endpoints/:id/analytics", (req, res) => {
   const endpointId = req.params.id;
 
   const analytics = db.prepare(`
     SELECT
       COUNT(*) AS total_checks,
-      SUM(success) AS successful_checks,
+      COALESCE(SUM(success), 0) AS successful_checks,
+      SUM(CASE
+        WHEN status_code >= 200 AND status_code < 300
+        THEN 1 ELSE 0
+      END) AS healthy_checks,
+      SUM(CASE
+        WHEN status_code >= 300 AND status_code < 400
+        THEN 1 ELSE 0
+      END) AS redirect_checks,
+      SUM(CASE
+        WHEN status_code >= 400
+        THEN 1 ELSE 0
+      END) AS http_error_checks,
+      SUM(CASE
+        WHEN status_code IS NULL
+        THEN 1 ELSE 0
+      END) AS unreachable_checks,
       AVG(latency_ms) AS average_latency_ms
     FROM checks
     WHERE endpoint_id = ?
   `).get(endpointId);
 
   const totalChecks = analytics.total_checks;
-  const successfulChecks = analytics.successful_checks ?? 0;
+  const successfulChecks = analytics.successful_checks;
 
   const successRate = totalChecks === 0
     ? 0
     : (successfulChecks / totalChecks) * 100;
 
   res.json({
-    totalChecks: totalChecks,
-    successfulChecks: successfulChecks,
+    totalChecks,
+    successfulChecks,
     successRate: Number(successRate.toFixed(2)),
+    healthyChecks: analytics.healthy_checks ?? 0,
+    redirectChecks: analytics.redirect_checks ?? 0,
+    httpErrorChecks: analytics.http_error_checks ?? 0,
+    unreachableChecks: analytics.unreachable_checks ?? 0,
     averageLatencyMs: analytics.average_latency_ms === null
       ? null
       : Math.round(analytics.average_latency_ms)
   });
 });
+
 
 // Run automatic website checks every 5 minutes.
 let scheduledChecksRunning = false;

@@ -433,13 +433,25 @@ function App() {
                             </p>
                           </div>
 
-                          <span
-                            className={`registered-badge ${
-                              check.success ? "" : "failure"
-                            }`}
-                          >
-                            {check.success ? "Success" : "Failed"}
-                          </span>
+                         
+<span
+  className={`registered-badge ${
+    getDisplayStatus({
+      statusCode: check.status_code,
+    }).className === "success"
+      ? ""
+      : getDisplayStatus({
+          statusCode: check.status_code,
+        }).className
+  }`}
+>
+  {
+    getDisplayStatus({
+      statusCode: check.status_code,
+    }).label
+  }
+</span>
+
                         </div>
                       ))}
                     </div>
@@ -506,6 +518,33 @@ function App() {
                         <span>Across recorded checks</span>
                       </div>
                     </div>
+
+<div className="stats status-stats">
+  <div className="stat-card">
+    <p>Healthy</p>
+    <h2>{stats?.healthyChecks ?? 0}</h2>
+    <span>HTTP 2xx responses</span>
+  </div>
+
+  <div className="stat-card">
+    <p>Redirects</p>
+    <h2>{stats?.redirectChecks ?? 0}</h2>
+    <span>HTTP 3xx responses</span>
+  </div>
+
+  <div className="stat-card">
+    <p>HTTP Errors</p>
+    <h2>{stats?.httpErrorChecks ?? 0}</h2>
+    <span>HTTP 4xx / 5xx responses</span>
+  </div>
+
+  <div className="stat-card">
+    <p>Unreachable</p>
+    <h2>{stats?.unreachableChecks ?? 0}</h2>
+    <span>No HTTP status received</span>
+  </div>
+</div>
+
 
                     {/* LATENCY CHART */}
                     <div className="chart-card">
